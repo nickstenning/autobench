@@ -13,14 +13,6 @@ import (
 
 var stop = make(chan bool, 1)
 
-func perpetuumMobile() {
-	select {
-	case <-stop:
-	default:
-		go perpetuumMobile()
-	}
-}
-
 func stackGrowthRecursive(i int) {
 	var pad [128]uint64
 	if i != 0 && pad[0] == 0 {
@@ -81,6 +73,24 @@ func benchmarkCreateGoroutines(b *testing.B, procs int) {
 	for i := 0; i < procs; i++ {
 		<-c
 	}
+}
+
+func BenchmarkCreateGoroutinesLeftOpen(b *testing.B) {
+	benchmarkCreateGoroutinesLeftOpen(b, 1000)
+}
+
+// benchmarkCreateGoroutinesLeftOpen opens `simul` goroutines at once.
+func benchmarkCreateGoroutinesLeftOpen(b *testing.B, simul int) {
+	c := make(chan bool)
+	f := func(c chan bool) { <-c }
+	for i := 0; i < b.N; i++ {
+		go f(c)
+		if (i+1)%simul == 0 {
+			// allow open goroutines to return
+			c <- true
+		}
+	}
+	c <- true
 }
 
 type Matrix [][]float64
